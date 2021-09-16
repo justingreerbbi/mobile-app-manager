@@ -21,6 +21,13 @@ class MAM_Storage {
 		}
 	}
 
+	/**
+	 * Get a client from the DB
+	 *
+	 * @param $client_id
+	 *
+	 * @return false
+	 */
 	public function getClient( $client_id ) {
 		global $wpdb;
 		$result = $wpdb->get_row( $wpdb->prepare( "SELECT client_id FROM {$wpdb->prefix}mam_clients WHERE client_id = %s", array( $client_id ) ) );
@@ -31,10 +38,16 @@ class MAM_Storage {
 		}
 	}
 
+	/**
+	 * Insert an access token into the DB
+	 * @param $client_id
+	 * @param $access_token
+	 *
+	 * @return array|false
+	 */
 	public function insertAccessToken( $client_id, $access_token ) {
-		$expires = date("Y-m-d H:i:s", strtotime( '+1 hour' ) );
-
 		global $wpdb;
+		$expires = date( "Y-m-d H:i:s", strtotime( '+1 hour' ) );
 		$insert = $wpdb->insert( $wpdb->prefix . 'mam_access_tokens', array(
 			'access_token' => $access_token,
 			'client_id'    => $client_id,

@@ -22,6 +22,11 @@ class MAM_API_Request {
 		if ( $request->get( 'mam' ) == 'auth/token' ) {
 			$this->handleTokenRequest( $request );
 		}
+
+		if ( $request->get( 'mam' ) == 'user/register' ) {
+			$this->handleTokenRequest( $request );
+		}
+
 	}
 
 	/**
