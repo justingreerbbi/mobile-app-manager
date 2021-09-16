@@ -29,9 +29,9 @@ $response = new MAM_API_Response();
  */
 if ( $method == 'auth/register' ) {
 
-	require_once( MAM_PLUGIN_DIR . '/includes/class-mam-auth.php' );
+	require_once( MAM_PLUGIN_DIR . '/includes/class-mam-api-request.php' );
 
-	$auth = new MAM_Auth();
+	$auth = new MAM_API_Request();
 	$auth->handleRequest( $wp_query );
 
 	$response->setResponse( array(
