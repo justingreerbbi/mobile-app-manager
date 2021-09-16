@@ -30,4 +30,26 @@ class MAM_Storage {
 			return false;
 		}
 	}
+
+	public function insertAccessToken( $client_id, $access_token ) {
+		$expires = date("Y-m-d H:i:s", strtotime( '+1 hour' ) );
+
+		global $wpdb;
+		$insert = $wpdb->insert( $wpdb->prefix . 'mam_access_tokens', array(
+			'access_token' => $access_token,
+			'client_id'    => $client_id,
+			'user_id'      => 0,
+			'expires'      => $expires,
+			'scope'        => 'basic',
+			'ap_generated' => 1
+		) );
+		if ( $insert ) {
+			return array(
+				'access_token' => $access_token,
+				'expires'      => $expires
+			);
+		} else {
+			return false;
+		}
+	}
 }

@@ -26,10 +26,73 @@ class MAM_API_Request {
 
 	/**
 	 * Handle Token Request. This method is only used as a way to issue tokens to device and not user
+	 *
 	 * @param $request
 	 */
 	public function handleTokenRequest( $request ) {
+		$this->checkRequestMethod( $request );
 
+		if ( empty( $_POST['grant_type'] ) ) {
+			$response = new MAM_API_Response();
+			$response->setError( array(
+				'error'             => 'missing_parameter',
+				'error_description' => 'The valid value for the parameter "grant type" MUST be provided'
+			), 400 );
+			$response->send();
+			exit;
+		}
+
+		if ( empty( $_POST['client_id'] ) ) {
+			$response = new MAM_API_Response();
+			$response->setError( array(
+				'error'             => 'missing_parameter',
+				'error_description' => 'The valid value for the parameter "client id" MUST be provided'
+			), 400 );
+			$response->send();
+			exit;
+		}
+
+		if ( $_POST['grant_type'] == 'client_credentials' ) {
+			$this->handleClientCredentialRequest( $_POST['client_id'] );
+		}
+
+		if ( $_POST['grant_type'] == 'user_password' ) {
+			exit( 'check the required username and password' );
+		}
+
+		exit;
+	}
+
+	public function handleClientCredentialRequest( $client_id ) {
+		$storage = new MAM_Storage();
+
+		$client_id_check = $storage->getClient( $client_id );
+		if ( $client_id_check == false ) {
+			$response = new MAM_API_Response();
+			$response->setError( array(
+				'error'             => 'invalid_client',
+				'error_description' => 'The client id provided is invalid'
+			), 400 );
+			$response->send();
+			exit;
+		}
+
+		// Issue an access token for the client
+		$access_token_data = $this->setAccessToken( $client_id );
+		$response = new MAM_API_Response();
+		$response->setResponse( $access_token_data, '201 Created' );
+		$response->send();
+
+		exit;
+	}
+
+	public function setAccessToken( $client_id ) {
+		$access_token = wp_generate_password( 60, false, false );
+
+		$storage = new MAM_Storage();
+		$token_data   = $storage->insertAccessToken( $client_id, $access_token );
+
+		return $token_data;
 	}
 
 	/**
@@ -44,6 +107,16 @@ class MAM_API_Request {
 		 * MUST BE POST https://datatracker.ietf.org/doc/html/rfc7591#page-15
 		 */
 		if ( $request->get( 'mam' ) == 'auth/register' && $_SERVER['REQUEST_METHOD'] != 'POST' ) {
+			$response = new MAM_API_Response();
+			$response->setError( array(
+				'error'             => 'unsupported_method',
+				'error_description' => 'POST method MUST be used when registering a dynamic client. https://datatracker.ietf.org/doc/html/rfc7591#page-15'
+			), 400 );
+			$response->send();
+			exit;
+		}
+
+		if ( $request->get( 'mam' ) == 'auth/token' && $_SERVER['REQUEST_METHOD'] != 'POST' ) {
 			$response = new MAM_API_Response();
 			$response->setError( array(
 				'error'             => 'unsupported_method',
