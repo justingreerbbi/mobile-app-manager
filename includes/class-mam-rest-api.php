@@ -3,9 +3,12 @@ defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
 
 do_action( 'mam_plugin_before_api', array( $_REQUEST ) );
 
+require_once( MAM_PLUGIN_DIR . '/includes/class-mam-api-request.php' );
+
 global $wp_query;
 $method   = $wp_query->get( 'mam' );
 $response = new MAM_API_Response();
+
 
 /**
  * Dynamic Client Registration
@@ -27,18 +30,10 @@ $response = new MAM_API_Response();
  *
  * @link https://datatracker.ietf.org/doc/html/rfc7591#page-15
  */
-if ( $method == 'auth/register' ) {
-
+if ( ! empty( $method ) ) {
 	require_once( MAM_PLUGIN_DIR . '/includes/class-mam-api-request.php' );
-
 	$auth = new MAM_API_Request();
-	$auth->handleRequest( $wp_query );
-
-	$response->setResponse( array(
-		'error'       => false,
-		'description' => 'The device has been registered'
-	) );
-	$response->send();
+	$r    = $auth->handleRequest( $wp_query );
 	exit;
 }
 

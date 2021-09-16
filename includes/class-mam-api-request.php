@@ -18,6 +18,18 @@ class MAM_API_Request {
 		if ( $request->get( 'mam' ) == 'auth/register' ) {
 			$this->handleDynamicClientRegistration( $request );
 		}
+
+		if ( $request->get( 'mam' ) == 'auth/token' ) {
+			$this->handleTokenRequest( $request );
+		}
+	}
+
+	/**
+	 * Handle Token Request. This method is only used as a way to issue tokens to device and not user
+	 * @param $request
+	 */
+	public function handleTokenRequest( $request ) {
+
 	}
 
 	/**
@@ -95,7 +107,7 @@ class MAM_API_Request {
 				$response->send();
 			}
 
-			$response->setResponse($creation, '201 Created');
+			$response->setResponse( $creation, '201 Created' );
 			$response->send();
 
 		} else {
