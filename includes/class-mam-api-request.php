@@ -13,7 +13,7 @@ class MAM_API_Request {
 	public function handleRequest( $request ) {
 
 		$request = apply_filters( 'mam_handle_request', $request );
-		$this->checkRequestMethdod( $request );
+		$this->checkRequestMethod( $request );
 
 		if ( $request->get( 'mam' ) == 'auth/register' ) {
 			$this->handleDynamicClientRegistration( $request );
@@ -25,7 +25,7 @@ class MAM_API_Request {
 	 *
 	 * @param $requestCheck
 	 */
-	public function checkRequestMethdod( $request ) {
+	public function checkRequestMethod( $request ) {
 
 		/*
 		 * Check dynamic registration client method.
@@ -74,6 +74,29 @@ class MAM_API_Request {
 
 			// Get the client name and device id. These are unique to a device
 			$client_name = sanitize_text_field( $input->client_name );
+			$device_id   = sanitize_text_field( $input->device_id );
+
+			// Generate a Custom Client ID
+			$generated_client_id = wp_generate_password( 32, false, false );
+
+			// Attempt to create the client in the DB
+			$storage  = new MAM_Storage();
+			$creation = $storage->insertClient( array(
+				'client_id'   => $generated_client_id,
+				'name'        => $client_name,
+				'description' => $device_id
+			) );
+
+			if ( $creation == false ) {
+				$response->setError( array(
+					'error'             => 'error_on_creation',
+					'error_description' => 'There was an issue creating the client. Check with the the developer.'
+				) );
+				$response->send();
+			}
+
+			$response->setResponse($creation, '201 Created');
+			$response->send();
 
 		} else {
 			$response->setError( array(
