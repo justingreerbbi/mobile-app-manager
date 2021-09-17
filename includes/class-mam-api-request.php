@@ -24,9 +24,122 @@ class MAM_API_Request {
 		}
 
 		if ( $request->get( 'mam' ) == 'user/register' ) {
-			$this->handleTokenRequest( $request );
+			$this->registerUser( $request );
+		}
+	}
+
+	/**
+	 * Register user
+	 *
+	 * @param $request
+	 */
+	public function registerUser( $request ) {
+		$token = $this->getBearerToken();
+
+		if ( empty( $token ) ) {
+			$response = new MAM_API_Response();
+			$response->setError( array(
+				'error'             => 'invalid_authorization',
+				'error_description' => 'Invalid authorization token'
+			), 400 );
+			$response->send();
+			exit;
 		}
 
+		if ( $access_token = $this->validateToken( $token ) ) {
+			if ( empty( $_POST['useremail'] ) || empty( $_POST['userpass'] ) ) {
+				$response = new MAM_API_Response();
+				$response->setError( array(
+					'error'             => 'missing_parameters',
+					'error_description' => 'The user email and or password is missing'
+				), '400 BAD REQUEST' );
+				$response->send();
+			}
+
+			if ( username_exists( $_POST['useremail'] ) && email_exists( $_POST['useremail'] ) ) {
+				$response = new MAM_API_Response();
+				$response->setError( array(
+					'error'             => 'invalid_parameter',
+					'error_description' => 'The user login already exists'
+				), '400 BAD REQUEST' );
+				$response->send();
+			}
+
+			// Create the user in the system and return
+			$user_id = wp_insert_user( array(
+				'user_login' => $_POST['useremail'],
+				'user_pass'  => $_POST['userpass'],
+				'user_email' => $_POST['useremail']
+			) );
+
+			if ( is_wp_error( $user_id ) ) {
+				$response = new MAM_API_Response();
+				$response->setError( array(
+					'error'             => 'invalid_parameter',
+					'error_description' => $user_id->get_error_message()
+				), '400 BAD REQUEST' );
+				$response->send();
+			}
+
+			$access_token          = wp_generate_password( 40, false, false );
+			$storage               = new MAM_Storage();
+			$assigned_access_token = $storage->assignAccessToken( $user_id, $access_token );
+
+			$response = new MAM_API_Response();
+			$response->setResponse( $assigned_access_token, '201 Created' );
+			$response->send();
+
+			exit;
+		}
+	}
+
+	public function validateToken( $access_token ) {
+		$storage = new MAM_Storage();
+		$check   = $storage->getAccessToken( $access_token );
+		if ( $check == false ) {
+			$response = new MAM_API_Response();
+			$response->setError( array(
+				'error'             => 'invalid_authorization',
+				'error_description' => 'Invalid authorization token'
+			), 400 );
+			$response->send();
+		} else {
+			return $check;
+		}
+	}
+
+	/**
+	 * Get Authorization Header
+	 * @return string|null
+	 */
+	public function getAuthorizationHeader() {
+		$headers = null;
+		if ( isset( $_SERVER['Authorization'] ) ) {
+			$headers = trim( $_SERVER["Authorization"] );
+		} elseif ( isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
+			$headers = trim( $_SERVER["HTTP_AUTHORIZATION"] );
+		} elseif ( isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
+			$headers = trim( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] );
+		} elseif ( function_exists( 'apache_request_headers' ) ) {
+			$requestHeaders = apache_request_headers();
+			$requestHeaders = array_combine( array_map( 'ucwords', array_keys( $requestHeaders ) ), array_values( $requestHeaders ) );
+			if ( isset( $requestHeaders['Authorization'] ) ) {
+				$headers = trim( $requestHeaders['Authorization'] );
+			}
+		}
+
+		return $headers;
+	}
+
+	public function getBearerToken() {
+		$headers = $this->getAuthorizationHeader();
+		if ( ! empty( $headers ) ) {
+			if ( preg_match( '/Bearer\s(\S+)/', $headers, $matches ) ) {
+				return $matches[1];
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -84,7 +197,7 @@ class MAM_API_Request {
 
 		// Issue an access token for the client
 		$access_token_data = $this->setAccessToken( $client_id );
-		$response = new MAM_API_Response();
+		$response          = new MAM_API_Response();
 		$response->setResponse( $access_token_data, '201 Created' );
 		$response->send();
 
@@ -94,8 +207,8 @@ class MAM_API_Request {
 	public function setAccessToken( $client_id ) {
 		$access_token = wp_generate_password( 60, false, false );
 
-		$storage = new MAM_Storage();
-		$token_data   = $storage->insertAccessToken( $client_id, $access_token );
+		$storage    = new MAM_Storage();
+		$token_data = $storage->insertAccessToken( $client_id, $access_token );
 
 		return $token_data;
 	}

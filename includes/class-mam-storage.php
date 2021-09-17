@@ -22,6 +22,21 @@ class MAM_Storage {
 	}
 
 	/**
+	 * Get Access Token
+	 *
+	 * @param $access_token
+	 */
+	public function getAccessToken( $access_token ) {
+		global $wpdb;
+		$result = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}mam_access_tokens WHERE access_token = %s", array( $access_token ) ) );
+		if ( $result ) {
+			return $result->access_token;
+		} else {
+			return false;
+		}
+	}
+
+	/**
 	 * Get a client from the DB
 	 *
 	 * @param $client_id
@@ -40,6 +55,7 @@ class MAM_Storage {
 
 	/**
 	 * Insert an access token into the DB
+	 *
 	 * @param $client_id
 	 * @param $access_token
 	 *
@@ -48,7 +64,7 @@ class MAM_Storage {
 	public function insertAccessToken( $client_id, $access_token ) {
 		global $wpdb;
 		$expires = date( "Y-m-d H:i:s", strtotime( '+1 hour' ) );
-		$insert = $wpdb->insert( $wpdb->prefix . 'mam_access_tokens', array(
+		$insert  = $wpdb->insert( $wpdb->prefix . 'mam_access_tokens', array(
 			'access_token' => $access_token,
 			'client_id'    => $client_id,
 			'user_id'      => 0,
@@ -58,6 +74,29 @@ class MAM_Storage {
 		) );
 		if ( $insert ) {
 			return array(
+				'access_token' => $access_token,
+				'expires'      => $expires
+			);
+		} else {
+			return false;
+		}
+	}
+
+	public function assignAccessToken( $user_id, $access_token ) {
+		global $wpdb;
+		$expires = date( "Y-m-d H:i:s", strtotime( '+1 hour' ) );
+		$insert  = $wpdb->insert( $wpdb->prefix . 'mam_access_tokens', array(
+			'access_token' => $access_token,
+			'client_id'    => '',
+			'user_id'      => $user_id,
+			'expires'      => $expires,
+			'scope'        => 'basic',
+			'ap_generated' => 1
+		) );
+
+		if ( $insert ) {
+			return array(
+				'user_id'      => $user_id,
 				'access_token' => $access_token,
 				'expires'      => $expires
 			);
