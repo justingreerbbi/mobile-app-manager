@@ -26,6 +26,147 @@ class MAM_API_Request {
 		if ( $request->get( 'mam' ) == 'user/register' ) {
 			$this->registerUser( $request );
 		}
+
+		// Easter Egg
+		if ( $request->get( 'mam' ) == 'huntercast' ) {
+			$this->huntercast( $request );
+		}
+	}
+
+	public function huntercast() {
+
+		/**
+		 * Variables for a Good Deer Hunt
+		 *
+		 * TEMPERATURE FACTOR
+		 *  - Colder The Better, Too Hot Not Bad
+		 *  - Temperature Swings
+		 *
+		 * Projected Model
+		 *
+		 * 50f at 50% of 2.5
+		 *
+		 * 26f - = 2.50
+		 * 31f - 35f = 2.25
+		 * 36f - 40f = 2.00
+		 * 41f - 45f = 1.75
+		 * 46f - 50f = 1.50
+		 * 51f - 55f = 1.25
+		 * 56f - 60f = 1.00
+		 * 61f - 65f = 0.75
+		 * 66f - 70f = 0.50
+		 * 71f + = 0.25
+		 *
+		 * 2.5 / 100
+		 *
+		 *
+		 *
+		 * CLOUD COVER FACTOR
+		 *  - Cloudy (Lowest), Partly Cloudy (Ok), Clear (Best)
+		 *
+		 * Projected Model:
+		 *
+		 * Cloudy = 0.83
+		 * Partly Cloudy = 1.60
+		 * Clear = 2.50
+		 *
+		 * - Wind Velocity
+		 *  - Faster the Better
+		 *
+		 * 0-5 = 0.50
+		 * 5-10 = 1.00
+		 * 10-15 = 1.50
+		 * 20-25 = 2.00
+		 * 25+ = 2.50
+		 *
+		 * ------
+		 * Model results should produce a scale outcome from 1-10, 10 being excellent and 1 being Poor.
+		 * Results = Poor, OK, Good, Excellent
+		 *
+		 * 0 - 2.5 = Poor
+		 * 2.6 - 5 = OK
+		 * 5.1 - 7.5 = Good
+		 * 7.6 - 10 = Excellent
+		 *
+		 * Modeling Weights of Factors
+		 *
+		 * Each factor has a weight bonus giving it more influence towards the outcome of the prediction. The weight
+		 * bonus is static while the calculation of the weight uses the total number of factors to calculate influence
+		 * of the prediction.
+		 *
+		 * EXAMPLE:
+		 * Weather has a weight bonus of the number of (number of factors / 2.5). 2.5 is used because of the scale 1-10
+		 * and the 2.5 being the constant. If the scale changes, so would the formula given a different result
+		 * accordingly.
+		 */
+		$temp_score     = $this->calculate_temp_score( 64 );
+		$overcast_score = $this->calculate_overcast_score( 'partly' );
+		$wind_score     = $this->calculate_wind_score( 6 );
+
+		$total      = $temp_score + $overcast_score + $wind_score;
+		$raw_score = $total / ( 3 * 2.50 ) * 100 / 10;
+
+		$response = new MAM_API_Response();
+		$response->setResponse( array(
+			'raw_score' => $raw_score
+		), '200 OK' );
+		$response->send();
+
+		exit;
+	}
+
+	/*******************************************/
+	public function calculate_overcast_score( $current_status ) {
+		$cloud_cover_scale = array(
+			'cloudy' => 0.83,
+			'partly' => 1.60,
+			'clear'  => 2.50
+		);
+		if ( key_exists( $current_status, $cloud_cover_scale ) ) {
+			return $cloud_cover_scale[ $current_status ];
+		} else {
+			return 0;
+		}
+	}
+
+	public function calculate_temp_score( $current_temp ) {
+		$start = 25;
+		$range = 10;
+		$step  = 5;
+		$loop  = 0;
+		if ( $current_temp < $start ) {
+			$temp_score = 2.50;
+		} else if ( $current_temp >= $start + ( $step * $range ) ) {
+			$temp_score = 0.25;
+		} else {
+			foreach ( range( $start, $start + ( $step * $range ), $step ) as $number ) {
+				$loop ++;
+				if ( $current_temp >= $number && $current_temp < ( $number + $step ) ) {
+					$temp_score = ( 2.50 / floatval( $range ) ) * ( $range - ( $loop - 1 ) );
+				}
+			}
+		}
+
+		return $temp_score;
+	}
+
+	public function calculate_wind_score( $wind_speed ) {
+		$start = 0;
+		$range = 5;
+		$step  = 5;
+		$loop  = 0;
+		if ( $wind_speed >= $start + ( $step * $range ) ) {
+			$wind_score = 2.50;
+		} else {
+			foreach ( range( $start, $start + ( $step * $range ), $step ) as $number ) {
+				$loop ++;
+				if ( $wind_speed >= $number && $wind_speed < ( $number + $step ) ) {
+					$wind_score = ( 2.50 / floatval( $range ) ) * $loop;
+				}
+			}
+		}
+
+		return $wind_score;
 	}
 
 	/**
@@ -33,7 +174,9 @@ class MAM_API_Request {
 	 *
 	 * @param $request
 	 */
-	public function registerUser( $request ) {
+	public function registerUser(
+		$request
+	) {
 		$token = $this->getBearerToken();
 
 		if ( empty( $token ) ) {
@@ -93,7 +236,10 @@ class MAM_API_Request {
 		}
 	}
 
-	public function validateToken( $access_token ) {
+	public
+	function validateToken(
+		$access_token
+	) {
 		$storage = new MAM_Storage();
 		$check   = $storage->getAccessToken( $access_token );
 		if ( $check == false ) {
@@ -112,7 +258,8 @@ class MAM_API_Request {
 	 * Get Authorization Header
 	 * @return string|null
 	 */
-	public function getAuthorizationHeader() {
+	public
+	function getAuthorizationHeader() {
 		$headers = null;
 		if ( isset( $_SERVER['Authorization'] ) ) {
 			$headers = trim( $_SERVER["Authorization"] );
@@ -131,7 +278,8 @@ class MAM_API_Request {
 		return $headers;
 	}
 
-	public function getBearerToken() {
+	public
+	function getBearerToken() {
 		$headers = $this->getAuthorizationHeader();
 		if ( ! empty( $headers ) ) {
 			if ( preg_match( '/Bearer\s(\S+)/', $headers, $matches ) ) {
@@ -147,7 +295,10 @@ class MAM_API_Request {
 	 *
 	 * @param $request
 	 */
-	public function handleTokenRequest( $request ) {
+	public
+	function handleTokenRequest(
+		$request
+	) {
 		$this->checkRequestMethod( $request );
 
 		if ( empty( $_POST['grant_type'] ) ) {
@@ -181,7 +332,10 @@ class MAM_API_Request {
 		exit;
 	}
 
-	public function handleClientCredentialRequest( $client_id ) {
+	public
+	function handleClientCredentialRequest(
+		$client_id
+	) {
 		$storage = new MAM_Storage();
 
 		$client_id_check = $storage->getClient( $client_id );
@@ -204,7 +358,10 @@ class MAM_API_Request {
 		exit;
 	}
 
-	public function setAccessToken( $client_id ) {
+	public
+	function setAccessToken(
+		$client_id
+	) {
 		$access_token = wp_generate_password( 60, false, false );
 
 		$storage    = new MAM_Storage();
@@ -218,7 +375,10 @@ class MAM_API_Request {
 	 *
 	 * @param $requestCheck
 	 */
-	public function checkRequestMethod( $request ) {
+	public
+	function checkRequestMethod(
+		$request
+	) {
 
 		/*
 		 * Check dynamic registration client method.
@@ -252,7 +412,10 @@ class MAM_API_Request {
 	 * - client_name
 	 * - device_id
 	 */
-	public function handleDynamicClientRegistration( $request ) {
+	public
+	function handleDynamicClientRegistration(
+		$request
+	) {
 		$response = new MAM_API_Response();
 
 		$inputJSON = file_get_contents( 'php://input' );
